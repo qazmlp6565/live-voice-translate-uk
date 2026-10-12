@@ -1,518 +1,160 @@
-# live-voice-translate
+# Live Voice Translate — English to Ukrainian
 
-Real-time Italian→English, French, Spanish, German audio translation using Whisper and Argos Translate.
+A modified version of [live-voice-translate](https://github.com/stephdl/live-voice-translate).
 
-Captures system audio (YouTube, video calls, etc.) and provides instant transcription and translation with interactive keyboard controls.
-
-## 🇮🇹 → 🇬🇧 Story behind this tool
-
-As a French developer working remotely with [Nethesis](https://www.nethesis.it/) (an Italian company behind NethServer and NethSecurity), I found myself in daily Italian-language meetings and calls. Not speaking Italian fluently, I needed a practical solution to follow technical discussions in real-time.
-
-I built this tool initially for my own needs — a simple Python script to capture audio streams and translate them live during meetings. It quickly became indispensable for my daily work, allowing me to actively participate in Italian-speaking technical sessions, understand documentation being discussed, and keep up with fast-paced conversations.
-
-After months of refining it for personal use, I realized this could help other developers in similar situations. Whether you're:
-- 🤝 Working with Italian teams or clients
-- 📚 Learning from Italian technical content (YouTube, conferences, webinars)
-- 🌍 Contributing to Italian open-source projects
-- 🎓 Studying Italian tech tutorials
-
-...this tool can make your life significantly easier.
-
-It demonstrates that complex problems don't always need complex solutions — 
-sometimes a straightforward Python script is all you need.
-
-**Buon lavoro!** 🚀
+This version is being developed for local, real-time English speech recognition and Ukrainian translation, with subtitles displayed in a transparent desktop overlay.
 
 ## Features
 
-- 🎤 **Real-time translation** - Italian to English, French, Spanish or German, phrase by phrase as the speaker finishes
-- 🎯 **5 Whisper models** - From tiny (fast) to large-v3 (accurate), switchable on-the-fly with **W**
-- ⚡ **3 speed modes** - Fast (500ms)/Normal (800ms)/Slow (1200ms) silence thresholds, switchable on-the-fly with **M**
-- 🔇 **VAD-based chunking** - [webrtcvad](https://github.com/wiseman/py-webrtcvad) detects speech boundaries in real-time; flushes on silence rather than fixed intervals
-- 📊 **Session statistics** - Duration, segments, word count and dropped chunks at end of session
-- ⌨️ **Full keyboard control** - Pause, save, switch model, switch language, change mode on-the-fly
-- 💾 **Markdown export** - Save timestamped bilingual transcripts with session stats
-- 🔧 **Zero configuration** - Auto-installs dependencies in isolated venv
-- ⚡ **GPU acceleration** - Experimental NVIDIA/CUDA support via `--gpu` (3-5x faster, falls back to CPU on failure)
-- 🐧 **Linux native** - Works with PipeWire/PulseAudio
-- 🎛️ **Smart audio source selection** - Auto-detects active stream, interactive menu when multiple sources are active
-- 🇮🇹 **Bilingual display** - Toggle Italian source text visibility
-
-## Privacy
-
-All processing happens **entirely on your machine** — no audio, transcription, or translation data ever leaves your computer.
-
-- **Speech recognition** is performed by [faster-whisper](https://github.com/guillaumekleindienst/faster-whisper), a local Whisper model that runs offline after the initial download.
-- **Translation** is handled by [argostranslate](https://github.com/argosopentech/argos-translate), which uses locally installed language models with no network calls at runtime.
-- **No cloud API** is contacted during use. There is no telemetry, no account, and no data sent to any third party.
-- **Audio capture** reads your system audio stream in memory only; nothing is written to disk unless you explicitly use `--save`.
-
-This tool is safe to use in environments where confidentiality matters (internal meetings, proprietary content, etc.).
-
-## Requirements
-
-- **OS**: Linux (tested on Fedora 43, Ubuntu 24.04, openSUSE Tumbleweed)
-- **Python**: 3.9+ (3.11 recommandé)
-- **Audio**: PulseAudio or **PipeWire** (modern Linux distributions)
-- **Packages**: `python3-venv`, `python3-devel` / `python311-devel` (needed to compile `webrtcvad`)
-
-**Note**: Most modern Linux distributions (Fedora 34+, Ubuntu 22.10+, Debian 12+) 
-use PipeWire as the default audio server. The script works seamlessly with both 
-PipeWire and legacy PulseAudio systems through the `pactl`/`parec` compatibility layer.
-
-## Installation
-
-### 1. System dependencies
-
-**Fedora / RHEL / CentOS:**
-```bash
-sudo dnf install python3-venv python3-devel pulseaudio-utils
-```
-
-**openSUSE:**
-```bash
-sudo zypper install python3-venv python311-devel pulseaudio-utils
-```
-
-**Ubuntu / Debian:**
-```bash
-sudo apt install python3-venv python3-dev pulseaudio-utils
-```
-
-> `pulseaudio-utils` provides `pactl` and `parec`, which are required for audio capture under both PulseAudio and PipeWire.
-
-### 2. Clone and run
-
-```bash
-# Clone repository
-git clone https://github.com/stephdl/live-voice-translate.git
-cd live-voice-translate
-
-# Run (first run auto-installs Python dependencies)
-./lvt.py
-```
-
-> **If your system Python is older than 3.9** (e.g. openSUSE with Python 3.6), the script
-> auto-detects a compatible version in `/usr/bin` and re-launches itself automatically.
-> If auto-detection fails, launch manually:
-> ```bash
-> python3.11 ./lvt.py
-> ```
-
-**First run** creates virtualenv in `~/.local/share/live-voice-translate/venv` and installs:
-- faster-whisper
-- argostranslate
-- webrtcvad
-
-This takes 2-3 minutes.
-
-### 3. Updating
-
-```bash
-cd live-voice-translate
-git pull origin main
-```
-
-New Python dependencies (if any) are installed automatically on the next run.
-
-> If you get unexpected errors after an update, delete the virtualenv to force a clean reinstall:
-> ```bash
-> rm -rf ~/.local/share/live-voice-translate/venv
-> ./lvt.py
-> ```
-
-## Usage
-
-### Interactive menu
-```bash
-./lvt.py
-```
-
-Select model (1-5), then start playing audio in another window.
-
-### Command-line
-```bash
-# Medium model (recommended)
-./lvt.py medium
-
-# Large model with slow mode (best quality)
-./lvt.py large --slow
-
-# Tiny model with fast mode (lowest latency)
-./lvt.py tiny --fast
-
-# Save transcript to file
-./lvt.py medium --save meeting.md
-
-# Auto-generated filename
-./lvt.py medium --save
-
-# Display Italian + English
-./lvt.py medium --show-italian
-
-# Translate to French (via it→en→fr double translation)
-./lvt.py medium --to fr
-
-# Translate to Spanish
-./lvt.py medium --to es
-
-# Translate to German
-./lvt.py medium --to de
-
-# Disable Voice Activity Detection (transcribe everything including silence)
-./lvt.py medium --no-vad
-
-# Enable GPU acceleration (NVIDIA/CUDA only, experimental)
-./lvt.py medium --gpu
-```
-
-### Keyboard shortcuts
-
-**During execution**, press:
-
-| Key | Action |
-|-----|--------|
-| **P** | Pause/Resume translation |
-| **S** | Save transcript now (creates file if needed) |
-| **M** | Change mode (fast → normal → slow → fast) |
-| **W** | Change Whisper model (tiny → base → small → medium → large-v3) |
-| **L** | Change target language (en → fr → es → de → en) |
-| **I** | Toggle Italian display (ON/OFF) |
-| **Q** | Quit gracefully |
-| **H** | Show session config + keyboard shortcuts help |
-
-**Note**: Shortcuts respond **instantly** (no need to press Enter).
-
-## Models comparison
-
-| Model | Accuracy | Latency | RAM | Use case |
-|-------|----------|---------|-----|----------|
-| **tiny** | 60% | ~1.5s | 1GB | Quick tests, low-end systems |
-| **base** | 85% | ~4s | 1.5GB | Fast casual listening |
-| **small** | 90% | ~5s | 2GB | Good balance |
-| **medium** | 95% | ~8s | 5GB | **Recommended** for most uses |
-| **large-v3** | 98% | ~12s | 10GB | Maximum accuracy (high CPU/fan) |
-
-## Speed modes
-
-| Mode | Segment size | Latency | Quality |
-|------|--------------|---------|---------|
-| **fast** | Shorter | Lower | May cut sentences |
-| **normal** | Balanced | Medium | **Default**, good compromise |
-| **slow** | Longer | Higher | Complete sentences, best context |
-
-Change mode on-the-fly by pressing **M** during execution.
-
-## Display modes
-
-### English only (default)
-```
-[14:25:30] ▶ Today was a tough day
-[14:25:45] ▶ What happened?
-```
-
-### Bilingual (Italian + English)
-```bash
-./lvt.py medium --show-italian
-```
-```
-[14:25:30] Oggi è stata una giornata difficile     (green)
-[14:25:30] ▶ Today was a tough day
-
-[14:25:45] Cosa è successo?                        (green)
-[14:25:45] ▶ What happened?
-```
-
-Toggle Italian display during execution with **I** key.
-
-## Examples
-
-### Translate YouTube video
-```bash
-# Start translator
-./lvt.py medium
-
-# In another window/tab, open YouTube
-firefox "https://www.youtube.com/watch?v=ITALIAN_VIDEO_ID"
-
-# Translations appear in real-time in terminal
-```
-
-### Translate video call
-```bash
-# Start with save
-./lvt.py medium --save meeting.md
-
-# Join video call (Zoom, Teams, Google Meet, Discord, etc.)
-# Translations saved to meeting.md
-
-# During call:
-# - Press 'p' to pause (e.g., when speaking)
-# - Press 'p' again to resume
-# - Press 's' to force save
-# - Press 'i' to show Italian text
-```
-
-### Compare models
-```bash
-# Test tiny (fastest)
-./lvt.py tiny --fast
-
-# Test large (best quality)
-./lvt.py large --slow
-```
-
-## Output format
-
-### Terminal output
-
-**English only:**
-```
-[14:25:30] ▶ Today was a tough day
-[14:25:45] ▶ What happened?
-```
-
-**Bilingual (with `--show-italian` or `i` key):**
-```
-[14:25:30] Oggi è stata una giornata difficile
-[14:25:30] ▶ Today was a tough day
-[14:25:45] Cosa è successo?
-[14:25:45] ▶ What happened?
-```
-
-### Markdown file (--save)
-```markdown
-# Live Voice Translation
-
-**Date:** 2026-04-01 14:25:30
-**Model:** medium
-**Mode:** normal
-
----
-
-**[14:25:30]**
-
-🇮🇹 *Oggi è stata una giornata difficile*
-
-🇬🇧 Today was a tough day
-
----
-
-**[14:25:45]**
-
-🇮🇹 *Cosa è successo?*
-
-🇬🇧 What happened?
-
----
-
-**End of session:** 2026-04-01 14:57:45
-**Duration:** 00:32:15
-**Phrases:** 147
-**Words:** 1823
-```
-
-## Audio source selection
-
-The tool auto-detects active audio monitor streams. If only one is active, it is selected automatically. If multiple streams are active simultaneously (e.g. a video call and a YouTube video), an interactive menu is displayed:
-
-```
-  Multiple audio streams detected:
-
-    1) USB Audio
-    2) JBL LIVE650BTNC
-
-  Select stream (1-2):
-```
-
-PipeWire internal loopback sinks are automatically filtered out.
+- English speech recognition using faster-whisper.
+- English-to-Ukrainian translation using Argos Translate.
+- Transparent GTK subtitle overlay.
+- Captures system audio through PulseAudio/PipeWire monitor sources.
+- Voice activity detection using WebRTC VAD.
+- CPU inference by default; optional CUDA mode.
+- Optional transcript logging to a text file.
+- Adjustable overlay: drag to move, use the bottom-right corner to resize, double-click to switch display size, and use the mouse wheel to browse subtitle history.
+
+This project is a work in progress. It has been tested on Linux Mint 22.3 with Python 3.12. Other distributions and desktop environments have not yet been verified.
 
 ## How it works
 
-1. **Audio source**: Auto-detects active PulseAudio/PipeWire monitor stream, with interactive selection when multiple are available
-2. **VAD chunking**: webrtcvad detects speech/silence boundaries and flushes each utterance when silence exceeds the mode threshold (500/800/1200ms)
-3. **Transcription**: Whisper converts Italian audio to text
-4. **Translation**: Argos Translate converts Italian → English, then English → target language if needed (fr/es/de)
-5. **Display**: Shows timestamped translations in terminal
-6. **Save**: Optionally exports to Markdown file
+1. Captures system playback audio through a PulseAudio/PipeWire monitor source.
+2. Detects speech and separates audio into chunks.
+3. Transcribes English speech locally with faster-whisper.
+4. Translates recognized text into Ukrainian with Argos Translate.
+5. Displays the translated subtitles in the overlay.
 
-**Architecture**:
-- Audio capture runs in background thread (non-blocking)
-- Keyboard controller uses `select()` for instant response (no dependencies)
-- Main thread processes audio queue and checks keyboard
+The Whisper model and Argos language package may need to be downloaded before first use. Audio transcription and translation are processed locally after the required models and packages are installed. This application does not guarantee that every recognized phrase or translation will be correct.
 
-## Troubleshooting
+## Requirements
 
-### No active audio stream detected
+- Linux with a working PulseAudio or PipeWire audio server.
+- Python 3.12 recommended (the tested environment).
+- GTK 3, PyGObject, and Cairo.
+- `pactl` for audio-source discovery.
+- Python packages: `faster-whisper`, `argostranslate`, and `webrtcvad`.
+
+## Installation
+
+### 1. Install system dependencies
+
+On Linux Mint or Ubuntu:
 
 ```bash
-# 1. Check if PulseAudio/PipeWire is running
-pactl info
-# Should show server info
+sudo apt update
+sudo apt install python3-venv python3-dev python3-gi gir1.2-gtk-3.0 python3-cairo pulseaudio-utils
+```
 
-# 2. List all audio sources
+### 2. Create the Python environment
+
+From the directory where you want to keep the project:
+
+```bash
+python3 -m venv --system-site-packages ~/.local/share/live-voice-translate/venv
+~/.local/share/live-voice-translate/venv/bin/python -m pip install --upgrade pip
+~/.local/share/live-voice-translate/venv/bin/python -m pip install -r requirements.txt
+```
+
+If the virtual environment already exists, you can reuse it rather than creating it again.
+
+### 3. Install the English-to-Ukrainian Argos language package
+
+Run this once while connected to the internet:
+
+```bash
+~/.local/share/live-voice-translate/venv/bin/python - <<'PY'
+import argostranslate.package
+
+packages = argostranslate.package.get_available_packages()
+package = next(
+    (p for p in packages if p.from_code == "en" and p.to_code == "uk"),
+    None,
+)
+
+if package is None:
+    raise SystemExit("English-to-Ukrainian Argos package was not found.")
+
+path = package.download()
+argostranslate.package.install_from_path(path)
+print("English-to-Ukrainian package installed.")
+PY
+```
+
+The application currently expects the `en` to `uk` translation package to be installed. It does not automatically install that package.
+
+### 4. Start the application
+
+Run from the project directory:
+
+```bash
+PYTHONPATH="/usr/lib/python3/dist-packages${PYTHONPATH:+:$PYTHONPATH}" \
+  ~/.local/share/live-voice-translate/venv/bin/python lvt.py --model tiny --to uk
+```
+
+The first launch may take longer because faster-whisper needs to download the selected model.
+
+## Command-line options
+
+```text
+--model   tiny | base | small | medium | large-v3
+--to      uk
+--mode    fast | normal | slow
+--save    PATH
+--gpu     Try CUDA inference, falling back to CPU if initialization fails
+```
+
+Examples:
+
+```bash
+# Default lightweight model
+python lvt.py --model tiny --to uk
+
+# Try a larger model for potentially better recognition
+python lvt.py --model small --to uk
+
+# Save recognized English and Ukrainian text with timestamps and latency
+python lvt.py --model tiny --to uk --save session.txt
+
+# Try CUDA if supported by the installed software and hardware
+python lvt.py --model small --to uk --gpu
+```
+
+The available processing modes are exposed by the command-line interface, but their behavior may change while the application is being developed.
+
+## Audio troubleshooting
+
+List available audio sources:
+
+```bash
 pactl list short sources
-
-# 3. Look for monitor sources (with RUNNING status)
-pactl list short sources | grep monitor
-
-# 4. If no monitor source is RUNNING:
-# - Play audio (YouTube, music, etc.)
-# - Run the check again
-pactl list short sources | grep -E "monitor.*RUNNING"
-
-# 5. If still no output, restart audio service
-pactl info
-
-# Output PipeWire :
-# Server Name: PulseAudio (on PipeWire 0.3.xx)
-
-# Output PulseAudio :
-# Server Name: pulseaudio
-
-systemctl --user restart pipewire pipewire-pulse  # For PipeWire
-systemctl --user restart pulseaudio                # For PulseAudio
 ```
 
-**Still not working?**
+Look for a source ending in `.monitor`. Play audio through the device you want to capture, then restart the application if the wrong source is selected.
 
-Check if audio is actually playing:
-```bash
-# Monitor audio levels in real-time
-pavucontrol  # GUI tool - check "Recording" tab
+If no monitor source is available, verify that PipeWire/PulseAudio is running and that system playback works.
 
-# Or command-line
-pactl subscribe  # Shows audio events
-```
+## Known limitations
 
----
+- Recognition quality depends on the audio quality, accent, background noise, and selected Whisper model.
+- Translation quality varies; proper names, idioms, and unusual phrasing may be mistranslated.
+- Larger Whisper models usually require more memory and processing time.
+- CUDA mode requires a compatible setup; CPU mode is the default.
+- Tested primarily on Linux Mint 22.3. Compatibility with other distributions is not guaranteed.
 
-### First run fails
-```bash
-# Install system dependencies (python*-devel is required to compile webrtcvad)
-sudo dnf install python3-venv python3-devel      # Fedora/RHEL
-sudo zypper install python3-venv python311-devel # openSUSE (adjust version if needed)
-sudo apt install python3-venv python3-dev        # Ubuntu/Debian
+## Feedback and contributions
 
-# Retry
-./lvt.py
-```
+Feedback, bug reports, and pull requests are welcome. Please include your Linux distribution, Python version, selected Whisper model, and relevant error messages when reporting a problem. Do not include private conversations or sensitive recordings in public reports.
 
-### Delete and reinstall virtualenv
-```bash
-# Remove virtualenv
-rm -rf ~/.local/share/live-voice-translate/
+This is an independent modification of the upstream project. It is not an official release of the original repository.
 
-# Rerun (recreates clean venv)
-./lvt.py
-```
+## Credits and license
 
-### Keyboard shortcuts not working
+The original project is by [Stéphane de Labrusse](https://github.com/stephdl). This version builds on that work and uses:
 
-Shortcuts require terminal in TTY mode. If piping output or running in non-interactive environment, use `--no-keyboard`:
-```bash
-./lvt.py medium --no-keyboard
-```
+- [faster-whisper](https://github.com/SYSTRAN/faster-whisper)
+- [Argos Translate](https://github.com/argosopentech/argos-translate)
+- [py-webrtcvad](https://github.com/wiseman/py-webrtcvad)
+- GTK 3 and PyGObject
 
-### Italian text not displaying correctly
-
-Ensure your terminal uses UTF-8 encoding:
-```bash
-# Check locale
-echo $LANG
-# Should show: fr_FR.UTF-8, en_US.UTF-8, or similar
-
-# If not UTF-8:
-export LANG=fr_FR.UTF-8
-export LC_ALL=fr_FR.UTF-8
-```
-
-## Performance tips
-
-- **CPU usage**: Use smaller models (tiny/base) on weak hardware
-- **Latency**: Use `--fast` (500ms silence, 6s max chunk) for lowest delay — may cut mid-sentence
-- **Accuracy**: Use `large --slow` (1200ms silence, 12s max chunk, max beam) for best quality
-- **Balance**: `medium` (default normal mode) is the best CPU/quality tradeoff
-- **RAM**: medium model needs ~5GB, large needs ~10GB
-- **GPU (NVIDIA)**: Use `--gpu` for 3-5x faster transcription — requires CUDA drivers. Falls back to CPU automatically on failure. AMD is not supported (CTranslate2 has no ROCm build).
-
-## Advanced usage
-
-### Custom save filename
-```bash
-./lvt.py medium --save "$(date +%Y%m%d)-meeting.md"
-```
-
-### Create save file during execution
-```bash
-# Start without --save
-./lvt.py medium
-
-# During execution, press 's'
-# Creates: live-translate-YYYYMMDD-HHMMSS.md
-```
-
-### Wayland compatibility
-
-Works out-of-the-box on Wayland (tested on Fedora 43 + GNOME 49).
-
-### X11 compatibility
-
-Fully compatible with X11 desktop environments.
-
-## License
-
-GNU General Public License v3.0 or later
-
-See [LICENSE](LICENSE) file for details.
-
-## Author
-
-**Stéphane de Labrusse**
-
-Freelance developer specializing in Linux, containerization, and cybersecurity.
-
-- GitHub: [@stephdl](https://github.com/stephdl)
-
-## Contributing
-
-Contributions welcome! Please:
-
-1. Fork the repository
-2. Create a feature branch
-3. Test your changes
-4. Submit a pull request
-
-## Roadmap
-
-Potential future features:
-
-- [x] VAD-based real-time chunking (webrtcvad) — flushes on silence, phrase by phrase
-- [x] Multiple target languages (French, Spanish, German) via double translation
-- [x] Smart audio source selection with interactive menu for multiple streams
-- [x] GPU acceleration (experimental, NVIDIA/CUDA only, auto-fallback to CPU)
-- [x] Session statistics - Duration, segments, word count, dropped chunks
-- [x] On-the-fly model switching (W key) without restarting
-- [x] On-the-fly language switching (L key) without restarting
-- [x] Markdown export with session stats and bilingual transcript
-- [ ] Multiple translators (DeepL/GPT fallback)
-- [ ] Bidirectional mode (IT+EN simultaneously)
-- [ ] Speaker diarization
-- [ ] Web dashboard
-- [ ] Export formats (PDF, DOCX, SRT subtitles)
-- [x] Support for other language pairs (French, Spanish, German via double translation)
-- [ ] Migrate VAD from [webrtcvad](https://github.com/wiseman/py-webrtcvad) (unmaintained since 2018) to a maintained alternative — Silero VAD investigated but requires PyTorch or has ONNX API instability; RMS energy-based VAD is a viable lightweight option
-
-## Acknowledgments
-
-- [Whisper](https://github.com/openai/whisper) by OpenAI
-- [faster-whisper](https://github.com/guillaumekln/faster-whisper) by Guillaume Klein
-- [Argos Translate](https://github.com/argosopentech/argos-translate) by Argos Open Technologies
-
-## Support
-
-For bugs or feature requests, please [open an issue](https://github.com/stephdl/dev/issues).
-
----
-
-**Made with ❤️ for the open-source community**
+The upstream project includes the GNU General Public License, version 3 or later. The accompanying `LICENSE` file is retained from the upstream repository. Review it before redistributing modified copies.
